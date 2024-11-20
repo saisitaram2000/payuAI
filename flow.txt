@@ -1,0 +1,31 @@
+trainingflow:
+
+train_DDL(table,column,description)
+train_questionAnswer(que,ans/sql)
+train_documentaion(documentation)=>to explain company related terms example GMV
+
+
+req/res flow:
+
+app.py:
+1)aws_bedrock session creation
+2)wrapper creation for chromadb and bedrock initialization (chromadb=>vectordb, bedrock=>LLM)
+3)DB connection (mysql)
+4)generate_sql,run_sql,...
+5)
+
+
+
+
+
+
+SQL queries sample:
+1)GMV
+2)SRT (by merchant, by paymentMode, by paymentgatewayid)
+3)Failure reasons for txns and analysis
+4)
+
+
+
+sample questions:
+find SRT of merchant 180012 for last 1 week
