@@ -34,7 +34,7 @@ vn.train(
 
 vn.train(
     documentation="""GMV
-    GMV for one transaction is calculated as transaction_fee - discount + additional_charges. all these fields are present in `transaction` table.
+    GMV for one transaction is calculated as transaction_fee - discount. all these fields are present in `transaction` table.
     GMV will be calculated for only captured transactions.
     for calculation of GMV for last 1 day:
     we should do sum of GMV of all transactions which are captured in last 1 day
@@ -47,7 +47,7 @@ vn.train(
 
 vn.train(
     documentation="""SRT
-    SRT means success rate not the Sales Revenue Transaction
+    SRT means `Sucess Rate of Transactions` only
     SRT is calculated using this formula: Total count of status=captured transactions multiplied by 100 divided by Total Transactions
     SRT is also known as success rate
     status,merchantid can be found in transaction table

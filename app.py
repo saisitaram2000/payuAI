@@ -1,9 +1,12 @@
+import matplotlib
 import ollama
 import pandas as pd
+import matplotlib.pyplot as plt
+import io
 from vanna.ollama import Ollama
 from vanna.chromadb import ChromaDB_VectorStore
 from vanna.flask import VannaFlaskApp
-from flask import Flask, request, jsonify, Response
+from flask import Flask, request, jsonify, Response, send_file, send_from_directory
 from pyngrok import ngrok
 from tabulate import tabulate
 import logging
@@ -19,7 +22,8 @@ class PayuAiInit(ChromaDB_VectorStore, Ollama):
         Ollama.__init__(self, config=config)
 
 #app and logging initialization
-app = Flask(__name__)
+app = Flask(__name__,static_folder="static")
+matplotlib.use("Agg")
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 vn = None
 db_config = {
@@ -32,7 +36,7 @@ db_config = {
 def initLLM():
     global vn
     vn = PayuAiInit(config={'model': 'mistral'})
-    vn.connect_to_mysql(host='172.21.11.46', dbname='payu', user='root', password='P@55phrase', port=3306)
+    vn.connect_to_mysql(host='172.21.11.46', dbname='payu_hack', user='root', password='P@55phrase', port=3306)
 
 async def preload_context(merchant_data):
     try:
@@ -54,6 +58,7 @@ def summarize_dataframe(prompt, dataframe):
     """
     try:
         # Convert DataFrame to JSON
+        logging.info(dataframe)
         json_data = dataframe.to_json(orient='records', indent=2)
         logging.info(f"DataFrame converted to JSON: {json_data}")
 
@@ -80,6 +85,30 @@ def summarize_dataframe(prompt, dataframe):
     except Exception as e:
         logging.error(f"Error summarizing DataFrame: {e}")
         raise
+def create_table_image(dataframe):
+    # Create a matplotlib figure
+    fig, ax = plt.subplots(figsize=(6, len(dataframe) * 0.6))  # Adjust size based on rows
+    ax.axis("off")  # Hide axes
+
+    # Create the table
+    table = plt.table(
+        cellText=dataframe.values,
+        colLabels=dataframe.columns,
+        cellLoc="center",
+        loc="center",
+    )
+
+    # Style adjustments
+    table.auto_set_font_size(False)
+    table.set_fontsize(12)
+    table.auto_set_column_width(col=list(range(len(dataframe.columns))))
+
+    # Save the image to a BytesIO buffer
+    buffer = io.BytesIO()
+    plt.savefig(buffer, format="png", bbox_inches="tight")
+    buffer.seek(0)
+    plt.close(fig)  # Close the plot
+    return buffer
 
 # Internal function
 def process_input(prompt,merchantId):
@@ -95,6 +124,10 @@ def process_input(prompt,merchantId):
     logging.info(f"Processed response: {response_summary}")
     return response_summary
 
+@app.route('/static/<path:filename>')
+def static_files(filename):
+    return send_from_directory(app.static_folder, filename)
+
 # API endpoint
 @app.route('/chat', methods=['POST'])
 def chat():
@@ -107,7 +140,7 @@ def chat():
                 return jsonify({'error': 'Invalid input'}), 400
             elif 'merchantId' not in data:
                 logging.warning("merchantId not present")
-                return jsonify({'error': 'Invalid input'}), 400
+                return jsonify({'error': 'Invalid input'}), 401
         
         prompt = data['prompt']
         merchantId = data['merchantid']
@@ -192,7 +225,7 @@ def onboard():
 
       
         # Call internal function
-        if prompt=="Payment Options":
+        if prompt=="Payment Modes & SRT":
             # Query the database
             query = """
             SELECT mode,last_1_month as SRT FROM aggregated_mode_srt_gmv
@@ -200,14 +233,26 @@ def onboard():
             """
             cursor.execute(query)
             result = cursor.fetchall()
-            logging.info(f"mode&srt: {result}")
             df = pd.DataFrame(result)
-            table_string = tabulate(df, headers="keys", tablefmt="grid")
+            logging.info(f"mode&srt: {df.to_json(orient='records', indent=2)}")
+            table_string = tabulate(df, headers="keys", tablefmt="grid",showindex=False)
             description = "Below are payment options and PayU SRT:\n"
             response_string = description + table_string
+            image_buffer = create_table_image(df)
+            image_path = "static/table_image.png"  # Save locally
+            with open(image_path, "wb") as f:
+                f.write(image_buffer.getvalue())
+
+    # Respond with JSON containing the summary key
+            response = {
+                "summary": f"https://3cee-14-143-127-46.ngrok-free.app//{image_path}"
+            }
+            return jsonify(response)
             # response_summary = summarize_dataframe(prompt,df)
-            return jsonify({"summary":response_string}), 200
+            # return jsonify({"summary":response_string}), 200
         # logging.info(f"Returning response: {response}")
+        else:
+            return jsonify({'summary': 'Sorry for inconvenience, We are not able to find your query'}),400
         
         
 

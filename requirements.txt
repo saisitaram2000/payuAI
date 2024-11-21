@@ -7,3 +7,4 @@ mysql-connector-python
 pyngrok
 PyMySQL
 tabulate
+matplotlib
