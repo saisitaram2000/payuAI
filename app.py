@@ -110,6 +110,26 @@ def create_table_image(dataframe):
     plt.close(fig)  # Close the plot
     return buffer
 
+def create_bar_graph(df):
+    
+    values = [73.5, 8.0, 12.3, 15.7]
+
+    # Create the bar graph
+    plt.figure(figsize=(8, 6))  # Adjust the figure size
+    modes = df['mode'].tolist()
+    srts = df['SRT'].tolist()
+    plt.bar(modes, srts, color='skyblue')
+
+    # Add labels and title
+    plt.title('Payment Options and SRT', fontsize=16)
+    plt.xlabel('Payment Options', fontsize=14)
+    plt.ylabel('SRT', fontsize=14)
+
+    # Show the graph
+    plt.grid(axis='y', linestyle='--', alpha=0.7)
+    plt.savefig('static/table_image.png', dpi=300, bbox_inches='tight')
+    plt.show()
+
 # Internal function
 def process_input(prompt,merchantId):
     global vn
@@ -238,14 +258,16 @@ def onboard():
             table_string = tabulate(df, headers="keys", tablefmt="grid",showindex=False)
             description = "Below are payment options and PayU SRT:\n"
             response_string = description + table_string
-            image_buffer = create_table_image(df)
+            response_string = response_string + "For visualization you can visit below link:"
+            # image_buffer = create_table_image(df)
             image_path = "static/table_image.png"  # Save locally
-            with open(image_path, "wb") as f:
-                f.write(image_buffer.getvalue())
+            # with open(image_path, "wb") as f:
+            #     f.write(image_buffer.getvalue())
+            create_bar_graph(df)
 
     # Respond with JSON containing the summary key
             response = {
-                "summary": f"https://3cee-14-143-127-46.ngrok-free.app//{image_path}"
+                "summary": response_string + f"https://3cee-14-143-127-46.ngrok-free.app//{image_path}"
             }
             return jsonify(response)
             # response_summary = summarize_dataframe(prompt,df)
