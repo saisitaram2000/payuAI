@@ -1,0 +1,8 @@
+chromadb
+vanna
+ollama
+asyncio
+pandas
+mysql-connector-python
+pyngrok
+PyMySQL

@@ -6,7 +6,8 @@ from vanna.flask import VannaFlaskApp
 from flask import Flask, request, jsonify
 from pyngrok import ngrok
 import logging
-import atexit
+import mysql.connector
+import asyncio
 
 # session = boto3.Session()
 # boto3_bedrock = boto3.client(service_name="bedrock-runtime")
@@ -16,28 +17,30 @@ class PayuAiInit(ChromaDB_VectorStore, Ollama):
         ChromaDB_VectorStore.__init__(self, config=config)
         Ollama.__init__(self, config=config)
 
-    # def connect_to_mysql(self, host, dbname, user, password, port):
-    #     try:
-    #         self.connection = mysql.connector.connect(
-    #             host=host,
-    #             database=dbname,
-    #             user=user,
-    #             password=password,
-    #             port=port
-    #         )
-    #         logging.info(f"Connected to MySQL database '{dbname}' on host '{host}' and port '{port}'.")
-    #     except Exception as e:
-    #         logging.error(f"Failed to connect to MySQL: {e}")
-    #         raise
-
 #app and logging initialization
 app = Flask(__name__)
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 vn = None
+db_config = {
+    "host": "localhost",
+    "user": "root",
+    "password": "SNjan@2023",
+    "database": "byte_me_up"
+}
+
 def initLLM():
     global vn
     vn = PayuAiInit(config={'model': 'mistral'})
     vn.connect_to_mysql(host='10.248.7.33', dbname='payu', user='root', password='root', port=3306)
+
+async def preload_context(merchant_data):
+    try:
+        # Simulate context preloading (e.g., fetching related data)
+        await asyncio.sleep(1)  # Simulate async processing
+        print(f"Preloading context for merchant: {merchant_data}")
+        # Add actual preloading logic here
+    except Exception as e:
+        print(f"Error during context preloading: {str(e)}")
     
 # print(training_data)
 # print(val)
@@ -117,6 +120,52 @@ def chat():
     except Exception as e:
         logging.error(f"An error occurred: {e}")
         return jsonify({'error': 'Internal Server Error'}), 500
+    
+@app.route('/authenticate', methods=['POST'])
+def validate_merchant():
+    try:
+        # Parse the input JSON
+        global db_config
+        data = request.json
+        phone = data.get("phone")
+        merchant_id = data.get("merchantid")
+
+        if not phone or not merchant_id:
+            return jsonify({"error": "Missing phone or merchantid"}), 400
+
+        # Connect to the MySQL database
+        connection = mysql.connector.connect(
+            host=db_config["host"],
+            user=db_config["user"],
+            password=db_config["password"],
+            database=db_config["database"]
+        )
+        cursor = connection.cursor(dictionary=True)
+
+        # Query the database
+        query = """
+        SELECT * FROM merchant
+        WHERE id = %s AND phone = %s
+        """
+        cursor.execute(query, (merchant_id, phone))
+        result = cursor.fetchone()
+
+        # Close the database connection
+        cursor.close()
+        connection.close()
+
+        # Check if the result exists
+        if result:
+            asyncio.run(preload_context(result))
+            return jsonify({"message": "Merchant validated"}), 200
+        else:
+            return jsonify({"error": "Merchant not found or phone mismatch"}), 401
+
+    except mysql.connector.Error as e:
+        return jsonify({"error": f"Database error: {str(e)}"}), 500
+    except Exception as e:
+        return jsonify({"error": f"An unexpected error occurred: {str(e)}"}), 500
+
 
 if __name__ == '__main__':
     initLLM()
