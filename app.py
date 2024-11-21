@@ -22,16 +22,16 @@ app = Flask(__name__)
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 vn = None
 db_config = {
-    "host": "localhost",
+    "host": "172.21.11.46",
     "user": "root",
-    "password": "SNjan@2023",
-    "database": "byte_me_up"
+    "password": "P@55phrase",
+    "database": "payu_hack"
 }
 
 def initLLM():
     global vn
     vn = PayuAiInit(config={'model': 'mistral'})
-    vn.connect_to_mysql(host='10.248.7.33', dbname='payu', user='root', password='root', port=3306)
+    vn.connect_to_mysql(host='172.21.11.46', dbname='payu', user='root', password='P@55phrase', port=3306)
 
 async def preload_context(merchant_data):
     try:
@@ -99,6 +99,7 @@ def process_input(prompt,merchantId):
 def chat():
     try:
         data = request.get_json()
+        logging.info(f"chat req: {data}")
         if not data :
             if 'input' not in data:
                 logging.warning("Invalid request payload")
@@ -107,15 +108,15 @@ def chat():
                 logging.warning("merchantId not present")
                 return jsonify({'error': 'Invalid input'}), 400
         
-        prompt = data['input']
-        merchantId = data['merchantId']
+        prompt = data['prompt']
+        merchantId = data['merchantid']
         logging.info(f"Received input: {prompt}")
 
         # Call internal function
         response = process_input(prompt,merchantId)
 
         logging.info(f"Returning response: {response}")
-        return jsonify({'response': response}), 200
+        return jsonify({'summary': response}), 200
 
     except Exception as e:
         logging.error(f"An error occurred: {e}")
@@ -129,7 +130,7 @@ def validate_merchant():
         data = request.json
         phone = data.get("phone")
         merchant_id = data.get("merchantid")
-
+        logging.info(f"data: {data}")
         if not phone or not merchant_id:
             return jsonify({"error": "Missing phone or merchantid"}), 400
 
