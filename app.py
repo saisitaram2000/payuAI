@@ -3,8 +3,9 @@ import pandas as pd
 from vanna.ollama import Ollama
 from vanna.chromadb import ChromaDB_VectorStore
 from vanna.flask import VannaFlaskApp
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, Response
 from pyngrok import ngrok
+from tabulate import tabulate
 import logging
 import mysql.connector
 import asyncio
@@ -166,6 +167,53 @@ def validate_merchant():
         return jsonify({"error": f"Database error: {str(e)}"}), 500
     except Exception as e:
         return jsonify({"error": f"An unexpected error occurred: {str(e)}"}), 500
+    
+# API endpoint
+@app.route('/onboard', methods=['POST'])
+def onboard():
+    try:
+        data = request.get_json()
+        logging.info(f"chat req: {data}")
+        if not data :
+            if 'input' not in data:
+                logging.warning("Invalid request payload")
+                return jsonify({'error': 'Invalid input'}), 400
+        
+        prompt = data['prompt']
+        logging.info(f"Received input: {prompt}")
+ # Connect to the MySQL database
+        connection = mysql.connector.connect(
+            host=db_config["host"],
+            user=db_config["user"],
+            password=db_config["password"],
+            database=db_config["database"]
+        )
+        cursor = connection.cursor(dictionary=True)
+
+      
+        # Call internal function
+        if prompt=="Payment Options":
+            # Query the database
+            query = """
+            SELECT mode,last_1_month as SRT FROM aggregated_mode_srt_gmv
+            WHERE type='SRT' and merchantid=0
+            """
+            cursor.execute(query)
+            result = cursor.fetchall()
+            logging.info(f"mode&srt: {result}")
+            df = pd.DataFrame(result)
+            table_string = tabulate(df, headers="keys", tablefmt="grid")
+            description = "Below are payment options and PayU SRT:\n"
+            response_string = description + table_string
+            # response_summary = summarize_dataframe(prompt,df)
+            return jsonify({"summary":response_string}), 200
+        # logging.info(f"Returning response: {response}")
+        
+        
+
+    except Exception as e:
+        logging.error(f"An error occurred: {e}")
+        return jsonify({'error': 'Internal Server Error'}), 500
 
 
 if __name__ == '__main__':
